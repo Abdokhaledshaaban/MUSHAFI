@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مصحفي</title>
+  <link rel="icon" href="icon.png" type="image/png" />
+
+  <meta name="description" content="موقع لتحفيظ القرءان وتشغيل لمقاطع صوتيه لاشهر القراء">
+  <meta name="keywords" content="قرآن, مصحف, تعليم">
+  <meta property="og:title" content="مصحفي">
+  <meta property="og:description" content="موقع لتحفيظ القرءان وتشغيل لمقاطع صوتيه لاشهر القراء">
+  <meta property="og:image" content="icon.png">
+  <meta property="og:type" content="website">
+
+  <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      background: #f5f0e6;
+      font-family: 'Amiri Quran', serif;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+      position: relative;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    select,
+    input,
+    button {
+      padding: 10px 14px;
+      border-radius: 15px;
+      border: 2px solid #14532d;
+      outline: none;
+      font-size: 16px;
+      background: #fffdf7;
+      color: #14532d;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    select:hover,
+    input:hover,
+    button:hover {
+      border-color: #0b3d1a;
+    }
+
+    select option {
+      padding: 8px;
+      background: #fffdf7;
+      color: #14532d;
+    }
+
+    button {
+      background: #14532d;
+      color: white;
+      font-weight: bold;
+    }
+
+    button:hover {
+      opacity: .9
+    }
+
+    .page {
+      background: #fffdf7;
+      padding: 50px 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0, 0, 0, .25);
+      min-height: 500px;
+      line-height: 2.8;
+      font-size: 26px;
+      text-align: justify;
+      position: relative;
+    }
+
+    .ayah {
+      cursor: pointer
+    }
+
+    .ayah-number {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 34px;
+      height: 34px;
+      border: 2px solid #333;
+      border-radius: 50%;
+      font-size: 16px;
+      margin: 0 6px;
+    }
+
+    .active {
+      background: rgba(20, 83, 45, .15)
+    }
+
+    .basmala {
+      text-align: center;
+      display: block;
+      font-size: 32px;
+      margin-bottom: 25px;
+      color: #14532d;
+      font-weight: bold;
+    }
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      margin: 15px 0;
+    }
+
+    audio {
+      width: 100%
+    }
+
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .controls select,
+      .controls input,
+      .controls button {
+        width: 100%;
+        font-size: 18px;
+      }
+
+      .page {
+        padding: 25px 20px;
+        font-size: 22px;
+        line-height: 2.4;
+        min-height: calc(100vh - 280px);
+      }
+
+      .ayah-number {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+
+      .nav {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        background: #fffdf7;
+        padding: 10px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, .2);
+        z-index: 10;
+      }
+
+      audio {
+        margin-bottom: 90px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="controls">
+      <select id="surah"></select>
+      من <input id="fromAyah" type="number" min="1" style="width:70px">
+      إلى <input id="toAyah" type="number" min="1" style="width:70px">
+      تكرار الآية <input id="ayahRepeat" value="1" type="number" min="1" style="width:70px">
+      تكرار النطاق <input id="rangeRepeat" value="1" type="number" min="1" style="width:70px">
+      <select id="reciter">
+        <option value="ar.alafasy">الشيخ مشاري العفاسي</option>
+        <option value="ar.minshawi">الشيخ المنشاوي</option>
+        <option value="ar.husary">الشيخ الحصري</option>
+      </select>
+      <button onclick="startPlay()">▶ تشغيل</button>
+    </div>
+
+    <div class="nav">
+      <button onclick="prevPage()">⬅ الصفحة السابقة</button>
+      <button onclick="nextPage()">الصفحة التالية ➡</button>
+    </div>
+
+    <div class="page" id="page"></div>
+    <audio id="audio" controls></audio>
+
+  </div>
+
+  <script>
+    const surahSel = document.getElementById("surah");
+    const pageDiv = document.getElementById("page");
+    const audio = document.getElementById("audio");
+    const reciterSel = document.getElementById("reciter");
+    const fromAyah = document.getElementById("fromAyah");
+    const toAyah = document.getElementById("toAyah");
+    const ayahRepeat = document.getElementById("ayahRepeat");
+    const rangeRepeat = document.getElementById("rangeRepeat");
+
+    let ayahs = [];
+    let ayahsPerPage = 7;
+    let page = 0;
+    let currentAyah = 0;
+    let from = null;
+    let to = null;
+    let ayahRepeatCount = 0;
+    let rangeRepeatCount = 0;
+    let infiniteMode = false;
+
+    function saveState() {
+      const state = {
+        surah: surahSel.value,
+        page,
+        currentAyah,
+        from: fromAyah.value,
+        to: toAyah.value,
+        ayahRepeat: ayahRepeat.value,
+        rangeRepeat: rangeRepeat.value,
+        reciter: reciterSel.value
+      };
+      localStorage.setItem("quranState", JSON.stringify(state));
+    }
+
+    function renderPage() {
+      pageDiv.innerHTML = "";
+      let start = page * ayahsPerPage;
+      let end = start + ayahsPerPage;
+
+      const surahNumber = Number(surahSel.value);
+
+      // البسملة العلوية لكل السور عدا الفاتحة والتوبة
+      if (page === 0 && surahNumber !== 1 && surahNumber !== 9) {
+        const basmala = document.createElement("div");
+        basmala.className = "basmala";
+        basmala.textContent = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
+        pageDiv.appendChild(basmala);
+      }
+
+      ayahs.slice(start, end).forEach((a, idx) => {
+        let span = document.createElement("span");
+        span.className = "ayah";
+        span.dataset.index = start + idx;
+
+        let ayahText = a.text;
+
+        // البسملة بجانب الآية تظهر فقط في الفاتحة
+        if (a.numberInSurah === 1 && surahNumber === 1) {
+          ayahText = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ " + ayahText;
+        }
+
+        // إزالة أي بسملة موجودة في أول آية لبقية السور
+        if (a.numberInSurah === 1 && surahNumber !== 1) {
+          ayahText = ayahText.replace("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", "").trim();
+        }
+
+        span.innerHTML = `${ayahText}<span class="ayah-number">${a.numberInSurah}</span> `;
+        span.onclick = () => {
+          playSingleAyah(start + idx);
+          saveState();
+        };
+        pageDiv.appendChild(span);
+      });
+
+      saveState();
+    }
+
+    fetch("https://api.alquran.cloud/v1/surah")
+      .then(r => r.json())
+      .then(d => {
+        d.data.forEach(s => {
+          surahSel.innerHTML += `<option value="${s.number}">${s.name}</option>`;
+        });
+
+        const saved = JSON.parse(localStorage.getItem("quranState"));
+        if (saved) {
+          surahSel.value = saved.surah;
+          fromAyah.value = saved.from || "";
+          toAyah.value = saved.to || "";
+          ayahRepeat.value = saved.ayahRepeat || 1;
+          rangeRepeat.value = saved.rangeRepeat || 1;
+          if (saved.reciter) reciterSel.value = saved.reciter;
+
+          fetch(`https://api.alquran.cloud/v1/surah/${saved.surah}/ar.hafs`)
+            .then(r => r.json())
+            .then(d2 => {
+              ayahs = d2.data.ayahs;
+              page = saved.page || 0;
+              currentAyah = saved.currentAyah || 0;
+              renderPage();
+              highlight(currentAyah);
+            });
+        }
+      });
+
+    surahSel.onchange = () => {
+      fetch(`https://api.alquran.cloud/v1/surah/${surahSel.value}/ar.hafs`)
+        .then(r => r.json())
+        .then(d => {
+          ayahs = d.data.ayahs;
+          page = 0;
+          currentAyah = 0;
+          renderPage();
+          saveState();
+        });
+    };
+
+    function nextPage() {
+      if ((page + 1) * ayahsPerPage < ayahs.length) {
+        page++;
+        renderPage();
+      }
+    }
+
+    function prevPage() {
+      if (page > 0) {
+        page--;
+        renderPage();
+      }
+    }
+
+    function playSingleAyah(i) {
+      currentAyah = i;
+      infiniteMode = true;
+      ayahRepeatCount = 0;
+
+      page = Math.floor(currentAyah / ayahsPerPage);
+      renderPage();
+
+      playCurrent();
+      saveState();
+    }
+
+    function startPlay() {
+      const fromVal = fromAyah.value;
+      const toVal = toAyah.value;
+
+      if (fromVal && toVal) {
+        from = Number(fromVal) - 1;
+        to = Number(toVal) - 1;
+        infiniteMode = false;
+        rangeRepeatCount = 0;
+      } else {
+        from = currentAyah || page * ayahsPerPage;
+        to = ayahs.length - 1;
+        infiniteMode = true;
+      }
+
+      currentAyah = from;
+      ayahRepeatCount = 0;
+
+      page = Math.floor(currentAyah / ayahsPerPage);
+      renderPage();
+
+      playCurrent();
+      saveState();
+    }
+
+    function playCurrent() {
+      highlight(currentAyah);
+
+      const reciter = reciterSel.value;
+      audio.src =
+        `https://cdn.islamic.network/quran/audio/128/${reciter}/${ayahs[currentAyah].number}.mp3`;
+      audio.play();
+
+      audio.onended = () => {
+        ayahRepeatCount++;
+
+        if (ayahRepeatCount < Number(ayahRepeat.value)) {
+          audio.play();
+          return;
+        }
+
+        ayahRepeatCount = 0;
+        currentAyah++;
+
+        if (currentAyah > to) {
+          if (infiniteMode) return;
+          rangeRepeatCount++;
+          if (rangeRepeatCount < Number(rangeRepeat.value)) {
+            currentAyah = from;
+            playCurrent();
+          }
+          return;
+        }
+
+        playCurrent();
+        saveState();
+      };
+    }
+
+    function highlight(i) {
+      document.querySelectorAll(".ayah").forEach(a => a.classList.remove("active"));
+      document.querySelector(`.ayah[data-index="${i}"]`)?.classList.add("active");
+      saveState();
+    }
+
+    let startX = 0;
+    pageDiv.addEventListener("touchstart", e => {
+      startX = e.touches[0].clientX;
+    });
+    pageDiv.addEventListener("touchend", e => {
+      let endX = e.changedTouches[0].clientX;
+      if (startX - endX > 50) nextPage();
+      if (endX - startX > 50) prevPage();
+    });
+
+  </script>
+
+</body>
+
+</html>
