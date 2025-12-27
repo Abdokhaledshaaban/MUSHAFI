@@ -175,15 +175,32 @@
 
     <div class="controls">
       <select id="surah"></select>
-      من <input id="fromAyah" type="number" min="1" style="width:70px">
-      إلى <input id="toAyah" type="number" min="1" style="width:70px">
-      تكرار الآية <input id="ayahRepeat" value="1" type="number" min="1" style="width:70px">
-      تكرار النطاق <input id="rangeRepeat" value="1" type="number" min="1" style="width:70px">
+
+      من
+      <select id="fromAyah">
+        <option value="">—</option>
+      </select>
+      إلى
+      <select id="toAyah">
+        <option value="">—</option>
+      </select>
+
+      تكرار الآية
+      <select id="ayahRepeat">
+        <option value="">—</option>
+      </select>
+
+      تكرار النطاق
+      <select id="rangeRepeat">
+        <option value="">—</option>
+      </select>
+
       <select id="reciter">
         <option value="ar.alafasy">الشيخ مشاري العفاسي</option>
         <option value="ar.minshawi">الشيخ المنشاوي</option>
         <option value="ar.husary">الشيخ الحصري</option>
       </select>
+
       <button onclick="startPlay()">▶ تشغيل</button>
     </div>
 
@@ -217,6 +234,17 @@
     let rangeRepeatCount = 0;
     let infiniteMode = false;
 
+    function fillRepeatOptions(select) {
+      for (let i = 1; i <= 30; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = i;
+        select.appendChild(opt);
+      }
+    }
+    fillRepeatOptions(ayahRepeat);
+    fillRepeatOptions(rangeRepeat);
+
     function saveState() {
       const state = {
         surah: surahSel.value,
@@ -235,10 +263,8 @@
       pageDiv.innerHTML = "";
       let start = page * ayahsPerPage;
       let end = start + ayahsPerPage;
-
       const surahNumber = Number(surahSel.value);
 
-      // البسملة العلوية لكل السور عدا الفاتحة والتوبة
       if (page === 0 && surahNumber !== 1 && surahNumber !== 9) {
         const basmala = document.createElement("div");
         basmala.className = "basmala";
@@ -253,12 +279,9 @@
 
         let ayahText = a.text;
 
-        // البسملة بجانب الآية تظهر فقط في الفاتحة
         if (a.numberInSurah === 1 && surahNumber === 1) {
           ayahText = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ " + ayahText;
         }
-
-        // إزالة أي بسملة موجودة في أول آية لبقية السور
         if (a.numberInSurah === 1 && surahNumber !== 1) {
           ayahText = ayahText.replace("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", "").trim();
         }
@@ -270,8 +293,23 @@
         };
         pageDiv.appendChild(span);
       });
-
       saveState();
+    }
+
+    function fillAyahRange() {
+      fromAyah.innerHTML = '<option value="">—</option>';
+      toAyah.innerHTML = '<option value="">—</option>';
+      for (let i = 1; i <= ayahs.length; i++) {
+        const opt1 = document.createElement("option");
+        opt1.value = i;
+        opt1.textContent = i;
+        fromAyah.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = i;
+        opt2.textContent = i;
+        toAyah.appendChild(opt2);
+      }
     }
 
     fetch("https://api.alquran.cloud/v1/surah")
@@ -284,16 +322,17 @@
         const saved = JSON.parse(localStorage.getItem("quranState"));
         if (saved) {
           surahSel.value = saved.surah;
-          fromAyah.value = saved.from || "";
-          toAyah.value = saved.to || "";
-          ayahRepeat.value = saved.ayahRepeat || 1;
-          rangeRepeat.value = saved.rangeRepeat || 1;
+          ayahRepeat.value = saved.ayahRepeat || "";
+          rangeRepeat.value = saved.rangeRepeat || "";
           if (saved.reciter) reciterSel.value = saved.reciter;
 
           fetch(`https://api.alquran.cloud/v1/surah/${saved.surah}/ar.hafs`)
             .then(r => r.json())
             .then(d2 => {
               ayahs = d2.data.ayahs;
+              fillAyahRange();
+              fromAyah.value = saved.from || "";
+              toAyah.value = saved.to || "";
               page = saved.page || 0;
               currentAyah = saved.currentAyah || 0;
               renderPage();
@@ -307,6 +346,7 @@
         .then(r => r.json())
         .then(d => {
           ayahs = d.data.ayahs;
+          fillAyahRange();
           page = 0;
           currentAyah = 0;
           renderPage();
@@ -317,25 +357,55 @@
     function nextPage() {
       if ((page + 1) * ayahsPerPage < ayahs.length) {
         page++;
-        renderPage();
+      } else {
+        const nextSurah = Number(surahSel.value) + 1;
+        if (nextSurah <= 114) {
+          surahSel.value = nextSurah;
+          fetch(`https://api.alquran.cloud/v1/surah/${nextSurah}/ar.hafs`)
+            .then(r => r.json())
+            .then(d => {
+              ayahs = d.data.ayahs;
+              fillAyahRange();
+              page = 0;
+              currentAyah = 0;
+              renderPage();
+              saveState();
+            });
+          return;
+        }
       }
+      renderPage();
     }
 
     function prevPage() {
       if (page > 0) {
         page--;
-        renderPage();
+      } else {
+        const prevSurah = Number(surahSel.value) - 1;
+        if (prevSurah >= 1) {
+          surahSel.value = prevSurah;
+          fetch(`https://api.alquran.cloud/v1/surah/${prevSurah}/ar.hafs`)
+            .then(r => r.json())
+            .then(d => {
+              ayahs = d.data.ayahs;
+              fillAyahRange();
+              page = Math.floor((ayahs.length - 1) / ayahsPerPage);
+              currentAyah = page * ayahsPerPage;
+              renderPage();
+              saveState();
+            });
+          return;
+        }
       }
+      renderPage();
     }
 
     function playSingleAyah(i) {
       currentAyah = i;
       infiniteMode = true;
       ayahRepeatCount = 0;
-
       page = Math.floor(currentAyah / ayahsPerPage);
       renderPage();
-
       playCurrent();
       saveState();
     }
@@ -344,28 +414,32 @@
       const fromVal = fromAyah.value;
       const toVal = toAyah.value;
 
-      if (fromVal && toVal) {
+      if (fromVal) {
         from = Number(fromVal) - 1;
-        to = Number(toVal) - 1;
+        to = toVal ? Number(toVal) - 1 : ayahs.length - 1;
         infiniteMode = false;
         rangeRepeatCount = 0;
       } else {
-        from = currentAyah || page * ayahsPerPage;
+        from = 0;
         to = ayahs.length - 1;
         infiniteMode = true;
       }
 
       currentAyah = from;
       ayahRepeatCount = 0;
-
       page = Math.floor(currentAyah / ayahsPerPage);
       renderPage();
-
       playCurrent();
       saveState();
     }
 
     function playCurrent() {
+      const newPage = Math.floor(currentAyah / ayahsPerPage);
+      if (newPage !== page) {
+        page = newPage;
+        renderPage();
+      }
+
       highlight(currentAyah);
 
       const reciter = reciterSel.value;
@@ -375,8 +449,8 @@
 
       audio.onended = () => {
         ayahRepeatCount++;
-
-        if (ayahRepeatCount < Number(ayahRepeat.value)) {
+        const ayahRepeatVal = Number(ayahRepeat.value || 1);
+        if (ayahRepeatCount < ayahRepeatVal) {
           audio.play();
           return;
         }
@@ -384,14 +458,27 @@
         ayahRepeatCount = 0;
         currentAyah++;
 
-        if (currentAyah > to) {
-          if (infiniteMode) return;
-          rangeRepeatCount++;
-          if (rangeRepeatCount < Number(rangeRepeat.value)) {
-            currentAyah = from;
-            playCurrent();
+        if (currentAyah > to || currentAyah >= ayahs.length) {
+          // انتقل للسورة التالية تلقائيًا إذا موجودة
+          const nextSurah = Number(surahSel.value) + 1;
+          if (nextSurah <= 114) {
+            surahSel.value = nextSurah;
+            fetch(`https://api.alquran.cloud/v1/surah/${nextSurah}/ar.hafs`)
+              .then(r => r.json())
+              .then(d => {
+                ayahs = d.data.ayahs;
+                fillAyahRange();
+                page = 0;
+                currentAyah = 0;
+                from = 0;
+                to = ayahs.length - 1;
+                renderPage();
+                playCurrent();
+              });
+            return;
+          } else {
+            return; // إذا آخر سورة، يوقف التشغيل
           }
-          return;
         }
 
         playCurrent();
@@ -414,7 +501,6 @@
       if (startX - endX > 50) nextPage();
       if (endX - startX > 50) prevPage();
     });
-
   </script>
 
 </body>
